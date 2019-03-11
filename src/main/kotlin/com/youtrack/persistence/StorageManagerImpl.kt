@@ -6,11 +6,11 @@ import com.youtrack.user.User
 import java.io.Serializable
 
 class StorageManagerImpl : StorageManager, Serializable {
-    private val issues = MyMutableList<IssueImpl>()
-    private val users = MyMutableList<User>()
+    private val issues = mutableListOf<IssueImpl>()
+    private val users = mutableListOf<User>()
 
     override fun store(user: User) {
-        if (!users.contains(user))
+        if (!users.containsAsPerValue(user))
             users.add(user)
     }
 
@@ -19,7 +19,8 @@ class StorageManagerImpl : StorageManager, Serializable {
     }
 
     override fun store(issue: Issue) {
-        issues.add(issue as IssueImpl)
+        if (!issues.containsAsPerValue(issue))
+            issues.add(issue as IssueImpl)
     }
 
     override fun remove(issue: Issue) {
@@ -42,5 +43,7 @@ class StorageManagerImpl : StorageManager, Serializable {
         users.clear()
     }
 
-    private class MyMutableList<E> : ArrayList<E>(), Serializable
+
 }
+
+private fun <T> Collection<T>.containsAsPerValue(ele: T): Boolean = any { it == ele }

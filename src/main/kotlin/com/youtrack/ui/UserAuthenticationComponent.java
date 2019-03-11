@@ -7,6 +7,9 @@ public class UserAuthenticationComponent {
     private JTextField emailField;
     private JPasswordField passwordField;
     private JCheckBox showPasswordCheckBox;
+    private JButton logInButton;
+    private JPanel containerPanel;
+
 
     public JTextField getEmailField() {
         return emailField;
@@ -23,8 +26,6 @@ public class UserAuthenticationComponent {
     public JButton getLogInButton() {
         return logInButton;
     }
-
-    private JButton logInButton;
 
     public JPanel getRootPanel() {
         return rootPanel;

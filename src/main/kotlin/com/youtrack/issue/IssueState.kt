@@ -1,20 +1,9 @@
 package com.youtrack.issue
 
 import java.io.Serializable
-import java.lang.Exception
-import javax.persistence.*
 
-@Entity
-@Table(name = "state")
-enum class IssueState(@Column(name = "render") var renderText: String) : Serializable {
+enum class IssueState(var renderText: String) : Serializable {
     RESOLVED("Resolved"), IN_PROGRESS("In Progress"), NOT_YET_RESOLVED("Not yet resolved");
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    var id = 0
-
-    constructor()
 
     companion object {
         fun fromText(text: String): IssueState {

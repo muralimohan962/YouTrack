@@ -1,12 +1,12 @@
 package com.youtrack.main
 
 import com.youtrack.ui.MyPanel
-import com.youtrack.ui.init
+import com.youtrack.ui.initUI
 import javax.swing.JFrame
 
 fun foo() {
 
-    init()
+    initUI()
     val component = MyPanel()
 
     val frame = JFrame()

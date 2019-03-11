@@ -1,141 +1,154 @@
 package com.youtrack.ui
 
 import com.youtrack.issue.Issue
-import com.youtrack.issue.IssuePriority
-import com.youtrack.issue.IssueState
+import com.youtrack.issue.IssueBuilder
+import com.youtrack.login.LoginSession
 import com.youtrack.user.User
 import com.youtrack.user.UserCredentials
 import com.youtrack.utils.StorageUtils
-import com.youtrack.utils.contains
-import com.youtrack.utils.isFilled
 import java.awt.CardLayout
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
+import java.awt.event.KeyAdapter
+import java.awt.event.KeyEvent
 import javax.swing.*
 
 class MyPanel : JPanel(CardLayout()), ActionListener {
-    private val userAuthenticationComponent = UserAuthenticationComponent()
-    private val userRegistrationComponent = UserSignupComponent()
-    private val model = DefaultListModel<Issue>()
-    private val issuesList = IssueList(model)
+    private val listModel = DefaultListModel<Issue>()
+    private val issuesComponent = IssuesComponent()
+    private val authenticationComponent = UserAuthenticationComponent()
+    private val signUpComponent = UserSignupComponent()
+    private val loginOrSignUpComponent = LoginOrSignUpComponent()
     private val storageManager = StorageUtils.storageManager
-    private val loginButton = JButton("Log In")
-    private val signUpButton = JButton("Sign Up")
-    private var previous = ""
-    private val component = ControlUIComponent()
-
 
     init {
-        storageManager.getIssues().forEach { model.addElement(it) }
-        add(issuesList, ISSUES_LIST)
-        add(userAuthenticationComponent.rootPanel, USER_AUTHENTICATION)
-        add(userRegistrationComponent.rootPanel, USER_REGISTRATION)
-        val panel = JPanel()
-        panel.add(loginButton)
-        panel.add(signUpButton)
+        initUI()
+        issuesComponent.issueList.model = listModel
+        storageManager.getIssues().forEach { listModel.addElement(it) }
 
-        loginButton.isFocusPainted = false
-        signUpButton.isFocusPainted = false
+        add(issuesComponent.rootPanel, ISSUES_LIST)
+        add(authenticationComponent.rootPanel, USER_AUTHENTICATION)
+        add(signUpComponent.rootPanel, USER_REGISTRATION)
 
-        loginButton.addActionListener(this)
-        signUpButton.addActionListener(this)
+        issuesComponent.createButton.addActionListener {
+            val frame = JFrame()
+            val dialog = CreateIssueDialog()
+            dialog.createButton.addActionListener {
+                createIssue(dialog.titleField.text, dialog.descriptionField.text, LoginSession.getCurrentUser()!!)
+            }
 
-        userAuthenticationComponent.logInButton.addActionListener(this)
-        userRegistrationComponent.signUpButton.addActionListener(this)
+            frame.run {
+                setSize(500, 500)
+                add(dialog.rootPanel)
+                pack()
+                defaultCloseOperation = JFrame.DISPOSE_ON_CLOSE
+                isVisible = true
+            }
+        }
 
-        add(panel, INITIAL_COMPONENT)
+        authenticationComponent.logInButton.addActionListener {
+            if (authenticate(authenticationComponent.emailField.text, authenticationComponent.passwordField.getText()))
+                (layout as CardLayout).show(this, ISSUES_LIST)
+        }
 
-        add(component.rootPanel, LIST_EDITING_COMPONENT)
+        authenticationComponent.showPasswordCheckBox.addItemListener {
+            if (authenticationComponent.showPasswordCheckBox.isSelected)
+                authenticationComponent.passwordField.showPassword()
+            else
+                authenticationComponent.passwordField.hidePassword()
+        }
+
+        signUpComponent.signUpButton.addActionListener {
+            if (registerUser(
+                    signUpComponent.nameField.text,
+                    signUpComponent.emailField.text,
+                    signUpComponent.passwordField.text,
+                    signUpComponent.confirmPasswordField.text,
+                    signUpComponent.adminCheckBox.isSelected
+                )
+            ) (layout as CardLayout).show(this, USER_AUTHENTICATION)
+        }
+
+        add(loginOrSignUpComponent.rootPanel, INITIAL_COMPONENT)
 
         (layout as CardLayout).show(this, INITIAL_COMPONENT)
-        previous = INITIAL_COMPONENT
 
-        component.priorityCB.model = DefaultComboBoxModel(
-            arrayOf(
-                IssuePriority.HIGH.renderText,
-                IssuePriority.LOW.renderText,
-                IssuePriority.NORMAL.renderText
-            )
-        )
-        component.stateCB.model = DefaultComboBoxModel(
-            arrayOf(
-                IssueState.NOT_YET_RESOLVED.renderText,
-                IssueState.RESOLVED.renderText,
-                IssueState.IN_PROGRESS.renderText
-            )
-        )
-
-        issuesList.addListSelectionListener {
-            if (it.valueIsAdjusting) return@addListSelectionListener
-            (layout as CardLayout).show(this, LIST_EDITING_COMPONENT)
+        loginOrSignUpComponent.logInButton.addActionListener {
+            (layout as CardLayout).show(this, USER_AUTHENTICATION)
         }
-    }
 
-    private fun authenticate(email: String, password: String) {
-        if (storageManager.getUsers().any {
-                it.credentials.email.equals(
-                    email,
-                    ignoreCase = false
-                ) && it.credentials.password.equals(password, ignoreCase = false)
-            }) {
-            (layout as CardLayout).show(this, ISSUES_LIST)
-            println("Implement the authentication!")
-        } else {
-            JOptionPane.showMessageDialog(
-                userAuthenticationComponent.rootPanel,
-                "No such user found! Please sign up!",
-                "Error",
-                JOptionPane.ERROR_MESSAGE
-            )
+        loginOrSignUpComponent.signUpButton.addActionListener {
             (layout as CardLayout).show(this, USER_REGISTRATION)
         }
+
     }
 
     override fun actionPerformed(e: ActionEvent?) {
-        when (e?.source) {
-            loginButton -> (layout as CardLayout).show(this, USER_AUTHENTICATION)
-            signUpButton -> (layout as CardLayout).show(this, USER_REGISTRATION)
-            userAuthenticationComponent.logInButton -> authenticate(userAuthenticationComponent.emailField.text, userAuthenticationComponent.passwordField.text)
-            userRegistrationComponent.signUpButton -> {
-                signUp(
-                    userRegistrationComponent.nameField.text,
-                    userRegistrationComponent.emailField.text,
-                    userRegistrationComponent.passwordField.text,
-                    userRegistrationComponent.confirmPasswordField.text,
-                    userRegistrationComponent.adminCheckBox.isSelected
-                )
-            }
-        }
+
     }
 
-    private fun signUp(name: String, email: String, password: String, confirmPassword: String, isAdmin: Boolean) {
-        var message = ""
-        when {
-            !name.isFilled() -> message = "Please enter the name."
-            !email.isFilled() -> message = "Please enter the email."
-            !password.isFilled() || !password.equals(confirmPassword, ignoreCase = false) -> message =
-                "Password must be 8 chars long."
-        }
+    private fun createIssue(title: String, description: String, user: User) {
+        val issue = IssueBuilder(title, description, user).build()
+        StorageUtils.storageManager.store(issue)
+        listModel.addElement(issue)
+    }
 
-        if (message != "") {
-            JOptionPane.showMessageDialog(
-                userRegistrationComponent.rootPanel,
-                message,
-                "Error",
-                JOptionPane.ERROR_MESSAGE
-            )
-            return
-        }
-
-        if (!storageManager.contains(email)) {
-            storageManager.store(User(name, UserCredentials(email, password), isAdmin))
-            JOptionPane.showMessageDialog(
-                userRegistrationComponent.rootPanel,
-                "Sign Up successful!",
-                "Success",
-                JOptionPane.INFORMATION_MESSAGE
+    private fun authenticate(email: String, password: String): Boolean {
+        val user = StorageUtils.storageManager.getUsers().firstOrNull {
+            it.credentials.email.equals(email, false) && it.credentials.password.equals(
+                password,
+                false
             )
         }
+
+        if (user == null) {
+            JOptionPane.showMessageDialog(this, "No such user found!", "Cannot login", JOptionPane.ERROR_MESSAGE)
+            return false
+        }
+
+        LoginSession.setCurrentUser(user)
+        return true
+    }
+
+    private fun registerUser(
+        name: String,
+        email: String,
+        password: String,
+        confirmPassword: String,
+        isAdmin: Boolean
+    ): Boolean {
+        if (!password.equals(confirmPassword, ignoreCase = false)) {
+            JOptionPane.showMessageDialog(this, "Password mismatch!", "Error sign up", JOptionPane.ERROR_MESSAGE)
+            return false
+        }
+
+        StorageUtils.storageManager.store(User(name, UserCredentials(email, password), isAdmin))
+        println("User stored!")
+        return true
+    }
+
+    private fun initUI() {
+        issuesComponent.searchField.addKeyListener(object : KeyAdapter() {
+            override fun keyTyped(e: KeyEvent?) {
+                val keyChar = e?.keyChar!!
+                if (keyChar in 'a'..'z' || keyChar in 'A'..'Z')
+                    processQuery("${issuesComponent.searchField.text}$keyChar")
+            }
+        })
+    }
+
+    private fun processQuery(query: String) {
+        val searchField = issuesComponent.searchField
+        val result = StorageUtils.storageManager.getIssues().filter {
+            it.title.startsWith(query, ignoreCase = true) || (it.title.contains(
+                query,
+                ignoreCase = true
+            ) && query.length >= 12)
+        }
+        searchField.componentPopupMenu = JPopupMenu("Suggestions")
+        result.forEach { searchField.componentPopupMenu.add(it.title) }
+        searchField.componentPopupMenu.show(this, searchField.x, searchField.y + searchField.height)
+        searchField.requestFocus()
     }
 
     companion object {
@@ -145,4 +158,18 @@ class MyPanel : JPanel(CardLayout()), ActionListener {
         private const val ISSUES_LIST = "issues.list"
         private const val LIST_EDITING_COMPONENT = "list.editing"
     }
+}
+
+private fun JPasswordField.showPassword() {
+    echoChar = 0.toChar()
+}
+
+private fun JPasswordField.hidePassword() {
+    echoChar = '*'
+}
+
+private fun JPasswordField.getText(): String {
+    val builder = StringBuilder()
+    password.forEach { builder.append(it) }
+    return builder.toString()
 }

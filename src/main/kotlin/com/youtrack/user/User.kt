@@ -1,21 +1,14 @@
 package com.youtrack.user
 
-import javax.persistence.*
-
-@Entity
-@Table(name = "user")
-data class User(
-    @Column(name = "name")
-    val name: String,
-    @Column(name = "credentials")
-    val credentials: UserCredentials,
-    @Column(name = "admin")
-    val isAdmin: Boolean = false
-) {
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    var id = 0
+/**
+ * Represents a user.
+ *
+ * @author Murali
+ * @author Sree hari
+ * @author Sony
+ * @author Sushma
+ */
+data class User(val name: String, val credentials: UserCredentials, val isAdmin: Boolean = false) {
 
     override fun toString(): String {
         return "Name: $name"

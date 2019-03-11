@@ -3,6 +3,13 @@ package com.youtrack.issue
 import com.youtrack.user.User
 import java.io.Serializable
 
+/**
+ * Represents an issue.
+ * @author Murali
+ * @author Sree hari
+ * @author Sony
+ * @author Sushma
+ */
 interface Issue : Serializable {
     val title: String
     val description: String
@@ -10,10 +17,8 @@ interface Issue : Serializable {
     val projectName: String
     var state: IssueState
     var subSystem: String
-    var assignee: User
+    var assignee: User?
     var fixVersion: String
     val filedBy: User
-    val comments: MyHashMap<String, User>
+    val comments: HashMap<String, User>
 }
-
-class MyHashMap<K, V> : HashMap<K, V>(), Serializable
